@@ -89,9 +89,6 @@ html, body {
   visibility: hidden;
 }
 
-
-/* 도형 선택 */
-
 #shapeSelector {
   position: absolute;
   left: 24px;
@@ -131,9 +128,6 @@ html, body {
   opacity: 1;
 }
 
-
-/* 현재 만들어진 도형 수 */
-
 #counter {
   position: absolute;
   right: 22px;
@@ -145,6 +139,7 @@ html, body {
   letter-spacing: -0.075em;
   pointer-events: none;
   opacity: 0.18;
+  z-index: 20;
 }
 
 #counter.visible {
@@ -202,12 +197,9 @@ const shapeContent = document.getElementById("shapeContent");
 const counter = document.getElementById("counter");
 const shapeButtons = document.querySelectorAll(".shape-button");
 
-
 const columns = 41;
 const rows = 25;
 const total = columns * rows;
-
-const maxClicks = 100;
 
 const discoverRadius = 30;
 const dragRadius = 18;
@@ -217,12 +209,8 @@ const dragIdleDelay = 220;
 const rewindSpeed = 250;
 const fadeTime = 700;
 
-const waveSoftness = 40;
 const shapeSize = 6.5;
 const maxShapeScale = 1.5;
-
-
-/* 떨어지는 움직임 */
 
 const gravity = 170;
 const centerVelocity = 3;
@@ -233,9 +221,25 @@ const horizontalVelocity = 10;
 const gravityVariation = 0.12;
 
 
-/* 폭죽 색 */
+/*
+숫자는 배열에 계속 추가된다.
+
+1
+5
+13
+25
+41
+61
+85
+113
+...
+*/
+
+const numberSteps = [1];
+
 
 const palettes = [
+
   [
     "#820050",
     "#a9003e",
@@ -283,12 +287,13 @@ const palettes = [
     "#f20d0d",
     "#ff4319"
   ]
+
 ];
 
 
 let activeShapes = ["circle"];
 
-let clickCounts = [];
+let steps = [];
 let pointShapes = [];
 let pointPalette = [];
 
@@ -305,9 +310,7 @@ let afterglows = [];
 let bigPoints = [];
 
 let motionFrame = null;
-
-
-/* 드래그 */
+let displayPoint = -1;
 
 let isDragging = false;
 let draggedPoints = new Set();
@@ -320,15 +323,15 @@ let startIndex = -1;
 
 
 
-// 발견 지점 만들기
-
 for (let i = 0; i < total; i++) {
 
-  clickCounts[i] = 0;
+  steps[i] = -1;
   pointShapes[i] = ["circle"];
 
   pointPalette[i] =
-    Math.floor(Math.random() * palettes.length);
+    Math.floor(
+      Math.random() * palettes.length
+    );
 
   idleTimers[i] = null;
   rewindFrames[i] = null;
@@ -337,9 +340,11 @@ for (let i = 0; i < total; i++) {
   fallData[i] = null;
   afterglows[i] = null;
 
-  bigPoints[i] = Math.random() < 0.06;
+  bigPoints[i] =
+    Math.random() < 0.06;
 
-  const point = document.createElement("div");
+  const point =
+    document.createElement("div");
 
   point.className = "discovery";
 
@@ -353,7 +358,62 @@ for (let i = 0; i < total; i++) {
 
 
 
-// 같은 위치에서는 같은 랜덤값 사용
+// 필요한 단계가 배열에 없으면 새 숫자를 계산해서 추가
+
+function makeNumberStep(step) {
+
+  while (numberSteps.length <= step) {
+
+    const n = numberSteps.length;
+
+    const last =
+      numberSteps[numberSteps.length - 1];
+
+    const next =
+      last + 4 * n;
+
+    numberSteps.push(next);
+  }
+
+  return numberSteps[step];
+}
+
+
+
+// 단계가 올라갈수록 반경 증가
+// 반경은 화면 전체를 덮는 크기에서 멈춘다
+
+function getRadius(step) {
+
+  const startRadius = 18;
+  const growRadius = 24;
+
+  const wantedRadius =
+    startRadius +
+    step * growRadius;
+
+
+  const w =
+    stage.clientWidth;
+
+  const h =
+    stage.clientHeight;
+
+
+  const maxRadius =
+    Math.sqrt(
+      w * w +
+      h * h
+    );
+
+
+  return Math.min(
+    wantedRadius,
+    maxRadius
+  );
+}
+
+
 
 function randomValue(index, seed = 1) {
 
@@ -368,8 +428,6 @@ function randomValue(index, seed = 1) {
 
 
 
-// 커서 주변에 보이는 도형
-
 function makeDiscoveryShape(type) {
 
   const svg =
@@ -378,7 +436,10 @@ function makeDiscoveryShape(type) {
       "svg"
     );
 
-  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute(
+    "viewBox",
+    "0 0 24 24"
+  );
 
   let shape;
 
@@ -422,10 +483,12 @@ function makeDiscoveryShape(type) {
     shape.setAttribute("height", 10);
   }
 
+
   svg.appendChild(shape);
 
   return svg;
 }
+
 
 
 function discoveryShape(index) {
@@ -434,15 +497,23 @@ function discoveryShape(index) {
     return activeShapes[0];
   }
 
-  const r = randomValue(index, 777);
+
+  const r =
+    randomValue(
+      index,
+      777
+    );
+
 
   const n =
     Math.floor(
       r * activeShapes.length
     );
 
+
   return activeShapes[n];
 }
+
 
 
 function updateDiscoveryShapes() {
@@ -451,7 +522,8 @@ function updateDiscoveryShapes() {
 
     discoveryElements[i].innerHTML = "";
 
-    const type = discoveryShape(i);
+    const type =
+      discoveryShape(i);
 
     discoveryElements[i].appendChild(
       makeDiscoveryShape(type)
@@ -461,82 +533,118 @@ function updateDiscoveryShapes() {
 
 
 
-// 도형 선택
-
 shapeButtons.forEach(function(button) {
 
-  button.addEventListener("pointerdown", function(e) {
-    e.stopPropagation();
-  });
+  button.addEventListener(
+    "pointerdown",
+    function(e) {
+      e.stopPropagation();
+    }
+  );
 
 
-  button.addEventListener("click", function(e) {
+  button.addEventListener(
+    "click",
+    function(e) {
 
-    e.stopPropagation();
+      e.stopPropagation();
 
-    const shape = button.dataset.shape;
+      const shape =
+        button.dataset.shape;
 
-    const on =
-      activeShapes.includes(shape);
+      const on =
+        activeShapes.includes(shape);
 
 
-    if (on) {
+      if (on) {
 
-      if (activeShapes.length === 1) {
-        return;
+        if (activeShapes.length === 1) {
+          return;
+        }
+
+
+        activeShapes =
+          activeShapes.filter(
+            function(item) {
+              return item !== shape;
+            }
+          );
+
+
+        button.classList.remove(
+          "active"
+        );
+
+      } else {
+
+        activeShapes.push(shape);
+
+        button.classList.add(
+          "active"
+        );
       }
 
-      activeShapes =
-        activeShapes.filter(function(item) {
-          return item !== shape;
-        });
 
-      button.classList.remove("active");
-
-    } else {
-
-      activeShapes.push(shape);
-      button.classList.add("active");
+      updateDiscoveryShapes();
     }
-
-    updateDiscoveryShapes();
-  });
+  );
 });
 
 
-
-// 화면에 지점 배치
 
 function setPositions() {
 
   positions = [];
 
-  const w = stage.clientWidth;
-  const h = stage.clientHeight;
+  const w =
+    stage.clientWidth;
 
-  const cellW = w / columns;
-  const cellH = h / rows;
+  const h =
+    stage.clientHeight;
+
+
+  const cellW =
+    w / columns;
+
+  const cellH =
+    h / rows;
 
 
   for (let i = 0; i < total; i++) {
 
-    const col = i % columns;
-    const row = Math.floor(i / columns);
+    const col =
+      i % columns;
+
+    const row =
+      Math.floor(
+        i / columns
+      );
+
 
     positions.push({
-      x: col * cellW + cellW / 2,
-      y: row * cellH + cellH / 2
+
+      x:
+        col * cellW +
+        cellW / 2,
+
+      y:
+        row * cellH +
+        cellH / 2
+
     });
   }
+
 
   draw();
 }
 
 
 
-// 커서와 가까운 지점 찾기
-
-function findPoint(x, y, maxDistance) {
+function findPoint(
+  x,
+  y,
+  maxDistance
+) {
 
   let found = -1;
   let closest = Infinity;
@@ -544,8 +652,12 @@ function findPoint(x, y, maxDistance) {
 
   for (let i = 0; i < total; i++) {
 
-    const dx = positions[i].x - x;
-    const dy = positions[i].y - y;
+    const dx =
+      positions[i].x - x;
+
+    const dy =
+      positions[i].y - y;
+
 
     const distance =
       Math.sqrt(
@@ -564,170 +676,239 @@ function findPoint(x, y, maxDistance) {
     }
   }
 
+
   return found;
 }
 
 
 
-// 현재 화면에 있는 도형 개수 표시
+function updateCounter() {
 
-function updateCounter(number) {
+  if (displayPoint === -1) {
 
-  counter.textContent = number;
+    counter.textContent = "0";
 
-  if (number === 0) {
+    counter.classList.remove(
+      "visible"
+    );
 
-    counter.classList.remove("visible");
-    counter.classList.add("zero");
+    counter.classList.add(
+      "zero"
+    );
 
-  } else {
-
-    counter.classList.remove("zero");
-    counter.classList.add("visible");
+    return;
   }
+
+
+  const step =
+    steps[displayPoint];
+
+
+  if (step < 0) {
+
+    counter.textContent = "0";
+
+    counter.classList.remove(
+      "visible"
+    );
+
+    counter.classList.add(
+      "zero"
+    );
+
+    return;
+  }
+
+
+  const number =
+    makeNumberStep(step);
+
+
+  counter.textContent =
+    number;
+
+
+  counter.classList.remove(
+    "zero"
+  );
+
+  counter.classList.add(
+    "visible"
+  );
 }
 
 
 
-// 클릭 시작
+stage.addEventListener(
+  "pointerdown",
+  function(e) {
 
-stage.addEventListener("pointerdown", function(e) {
+    if (
+      e.target.closest(
+        "#shapeSelector"
+      )
+    ) {
+      return;
+    }
 
-  if (e.target.closest("#shapeSelector")) {
-    return;
+
+    isDragging = true;
+    pointerMoved = false;
+
+    draggedPoints.clear();
+
+    downX = e.clientX;
+    downY = e.clientY;
+
+
+    startIndex =
+      findPoint(
+        e.clientX,
+        e.clientY,
+        discoverRadius
+      );
+
+
+    stage.setPointerCapture(
+      e.pointerId
+    );
   }
+);
 
-  isDragging = true;
-  pointerMoved = false;
 
-  draggedPoints.clear();
 
-  downX = e.clientX;
-  downY = e.clientY;
+stage.addEventListener(
+  "pointermove",
+  function(e) {
 
-  startIndex =
-    findPoint(
+    if (!isDragging) {
+
+      showNearPoints(
+        e.clientX,
+        e.clientY
+      );
+
+      return;
+    }
+
+
+    const dx =
+      e.clientX - downX;
+
+    const dy =
+      e.clientY - downY;
+
+
+    const distance =
+      Math.sqrt(
+        dx * dx +
+        dy * dy
+      );
+
+
+    if (distance > 5) {
+      pointerMoved = true;
+    }
+
+
+    if (!pointerMoved) {
+      return;
+    }
+
+
+    dragPoint(
       e.clientX,
-      e.clientY,
-      discoverRadius
+      e.clientY
     );
 
-  stage.setPointerCapture(e.pointerId);
-});
-
-
-
-// 커서 이동
-
-stage.addEventListener("pointermove", function(e) {
-
-  if (!isDragging) {
 
     showNearPoints(
       e.clientX,
       e.clientY
     );
-
-    return;
   }
-
-
-  const dx = e.clientX - downX;
-  const dy = e.clientY - downY;
-
-  const distance =
-    Math.sqrt(
-      dx * dx +
-      dy * dy
-    );
-
-
-  if (distance > 5) {
-    pointerMoved = true;
-  }
-
-
-  if (!pointerMoved) {
-    return;
-  }
-
-
-  dragPoint(
-    e.clientX,
-    e.clientY
-  );
-
-
-  showNearPoints(
-    e.clientX,
-    e.clientY
-  );
-});
+);
 
 
 
-// 클릭 끝
+stage.addEventListener(
+  "pointerup",
+  function(e) {
 
-stage.addEventListener("pointerup", function(e) {
-
-  if (!isDragging) {
-    return;
-  }
+    if (!isDragging) {
+      return;
+    }
 
 
-  if (
-    !pointerMoved &&
-    startIndex !== -1
-  ) {
+    if (
+      !pointerMoved &&
+      startIndex !== -1
+    ) {
 
-    grow(startIndex);
+      grow(startIndex);
 
-  } else {
+    } else {
 
-    draggedPoints.forEach(function(index) {
+      draggedPoints.forEach(
+        function(index) {
 
-      scheduleRewind(
-        index,
-        dragIdleDelay
+          scheduleRewind(
+            index,
+            dragIdleDelay
+          );
+
+        }
       );
-    });
+    }
+
+
+    isDragging = false;
+    draggedPoints.clear();
+
+    startIndex = -1;
+
+
+    try {
+
+      stage.releasePointerCapture(
+        e.pointerId
+      );
+
+    } catch (error) {}
   }
+);
 
 
-  isDragging = false;
-  draggedPoints.clear();
 
-  startIndex = -1;
-
-
-  try {
-    stage.releasePointerCapture(e.pointerId);
-  } catch (error) {}
-});
-
-
-stage.addEventListener("pointercancel", function() {
-  finishDrag();
-});
-
-
-stage.addEventListener("mouseleave", function() {
-
-  if (!isDragging) {
-    hideNearPoints();
+stage.addEventListener(
+  "pointercancel",
+  function() {
+    finishDrag();
   }
-});
+);
 
 
 
-// 새로운 폭죽 시작할 때 모양과 색 저장
+stage.addEventListener(
+  "mouseleave",
+  function() {
+
+    if (!isDragging) {
+      hideNearPoints();
+    }
+
+  }
+);
+
+
 
 function saveShape(index) {
 
-  if (clickCounts[index] === 0) {
+  if (steps[index] < 0) {
 
     pointShapes[index] =
       [...activeShapes];
+
 
     pointPalette[index] =
       Math.floor(
@@ -738,8 +919,6 @@ function saveShape(index) {
 }
 
 
-
-// 드래그
 
 function dragPoint(x, y) {
 
@@ -755,7 +934,10 @@ function dragPoint(x, y) {
     return;
   }
 
-  if (draggedPoints.has(index)) {
+
+  if (
+    draggedPoints.has(index)
+  ) {
     return;
   }
 
@@ -766,18 +948,23 @@ function dragPoint(x, y) {
   cancelAnimation(index);
 
 
-  if (clickCounts[index] === 0) {
+  if (steps[index] < 0) {
 
-    clickCounts[index] = 1;
+    steps[index] = 0;
 
   } else {
 
-    clickCounts[index] =
-      Math.min(
-        maxClicks,
-        clickCounts[index] + 1
-      );
+    steps[index]++;
   }
+
+
+  makeNumberStep(
+    steps[index]
+  );
+
+
+  displayPoint =
+    index;
 
 
   discoveryElements[index]
@@ -786,8 +973,11 @@ function dragPoint(x, y) {
   discoveryElements[index]
     .classList.add("clicked");
 
+
+  updateCounter();
   draw();
 }
+
 
 
 function finishDrag() {
@@ -797,30 +987,33 @@ function finishDrag() {
   }
 
 
-  draggedPoints.forEach(function(index) {
+  draggedPoints.forEach(
+    function(index) {
 
-    scheduleRewind(
-      index,
-      dragIdleDelay
-    );
-  });
+      scheduleRewind(
+        index,
+        dragIdleDelay
+      );
+
+    }
+  );
 
 
   draggedPoints.clear();
-
   isDragging = false;
 }
 
 
 
-// 커서 주변의 지점만 보이기
-
-function showNearPoints(mouseX, mouseY) {
+function showNearPoints(
+  mouseX,
+  mouseY
+) {
 
   for (let i = 0; i < total; i++) {
 
     if (
-      clickCounts[i] > 0 ||
+      steps[i] >= 0 ||
       fallData[i] !== null ||
       afterglows[i] !== null
     ) {
@@ -840,10 +1033,13 @@ function showNearPoints(mouseX, mouseY) {
 
 
     const dx =
-      positions[i].x - mouseX;
+      positions[i].x -
+      mouseX;
 
     const dy =
-      positions[i].y - mouseY;
+      positions[i].y -
+      mouseY;
+
 
     const distance =
       Math.sqrt(
@@ -852,7 +1048,10 @@ function showNearPoints(mouseX, mouseY) {
       );
 
 
-    if (distance <= discoverRadius) {
+    if (
+      distance <=
+      discoverRadius
+    ) {
 
       discoveryElements[i]
         .classList.add("near");
@@ -866,18 +1065,18 @@ function showNearPoints(mouseX, mouseY) {
 }
 
 
+
 function hideNearPoints() {
 
   for (let i = 0; i < total; i++) {
 
     discoveryElements[i]
       .classList.remove("near");
+
   }
 }
 
 
-
-// 한 번 누를 때마다 단계 증가
 
 function grow(index) {
 
@@ -885,14 +1084,23 @@ function grow(index) {
   cancelAnimation(index);
 
 
-  if (clickCounts[index] >= maxClicks) {
+  if (steps[index] < 0) {
 
-    resetPoint(index);
-    return;
+    steps[index] = 0;
+
+  } else {
+
+    steps[index]++;
   }
 
 
-  clickCounts[index]++;
+  makeNumberStep(
+    steps[index]
+  );
+
+
+  displayPoint =
+    index;
 
 
   discoveryElements[index]
@@ -902,7 +1110,9 @@ function grow(index) {
     .classList.add("clicked");
 
 
+  updateCounter();
   draw();
+
 
   scheduleRewind(
     index,
@@ -912,13 +1122,12 @@ function grow(index) {
 
 
 
-// 진행 중인 애니메이션 취소
-
 function cancelAnimation(index) {
 
   clearTimeout(
     idleTimers[index]
   );
+
 
   idleTimers[index] = null;
 
@@ -929,11 +1138,13 @@ function cancelAnimation(index) {
 }
 
 
+
 function resetPoint(index) {
 
   cancelAnimation(index);
 
-  clickCounts[index] = 0;
+  steps[index] = -1;
+
 
   discoveryElements[index]
     .classList.remove(
@@ -941,12 +1152,21 @@ function resetPoint(index) {
       "near"
     );
 
+
+  if (
+    displayPoint === index
+  ) {
+
+    displayPoint = -1;
+
+    updateCounter();
+  }
+
+
   draw();
 }
 
 
-
-// 클릭을 멈추면 되감기
 
 function scheduleRewind(
   index,
@@ -959,17 +1179,21 @@ function scheduleRewind(
 
 
   idleTimers[index] =
-    setTimeout(function() {
+    setTimeout(
+      function() {
 
-      startRewind(index);
+        startRewind(index);
 
-    }, delay);
+      },
+      delay
+    );
 }
+
 
 
 function startRewind(index) {
 
-  if (clickCounts[index] <= 0) {
+  if (steps[index] < 0) {
     return;
   }
 
@@ -979,23 +1203,27 @@ function startRewind(index) {
   rewinding[index] = true;
 
 
-  const startCount =
-    clickCounts[index];
+  const startStep =
+    steps[index];
 
   const startTime =
     performance.now();
 
+
   const duration =
     Math.max(
       480,
-      startCount * rewindSpeed
+      (startStep + 1) *
+      rewindSpeed
     );
 
 
   fallData[index] = {
+
     startTime: startTime,
-    startCount: startCount,
+    startStep: startStep,
     duration: duration
+
   };
 
 
@@ -1012,6 +1240,7 @@ function startRewind(index) {
     const passed =
       now - startTime;
 
+
     const progress =
       Math.min(
         1,
@@ -1019,35 +1248,58 @@ function startRewind(index) {
       );
 
 
-    let number =
-      Math.ceil(
-        startCount *
-        (1 - progress)
+    let newStep =
+      startStep -
+      Math.floor(
+        progress *
+        (startStep + 1)
       );
 
 
-    number =
+    newStep =
       Math.max(
-        0,
-        number
+        -1,
+        newStep
       );
 
 
     if (
-      number !==
-      clickCounts[index]
+      newStep !==
+      steps[index]
     ) {
 
-      clickCounts[index] = number;
+      steps[index] =
+        newStep;
+
+
+      if (
+        displayPoint === index
+      ) {
+
+        updateCounter();
+      }
     }
 
 
     if (progress < 1) {
 
       rewindFrames[index] =
-        requestAnimationFrame(rewind);
+        requestAnimationFrame(
+          rewind
+        );
 
     } else {
+
+      steps[index] = -1;
+
+
+      if (
+        displayPoint === index
+      ) {
+
+        updateCounter();
+      }
+
 
       stopRewind(index);
 
@@ -1060,8 +1312,11 @@ function startRewind(index) {
 
 
   rewindFrames[index] =
-    requestAnimationFrame(rewind);
+    requestAnimationFrame(
+      rewind
+    );
 }
+
 
 
 function stopRewind(index) {
@@ -1082,16 +1337,18 @@ function stopRewind(index) {
 
 
 
-// 마지막 잔상
-
-function startAfterglow(index, now) {
+function startAfterglow(
+  index,
+  now
+) {
 
   afterglows[index] = {
-    startTime: now,
-    size: 0.35
+
+    startTime: now
+
   };
 
-  clickCounts[index] = 0;
+
   idleTimers[index] = null;
 
   startMotionLoop();
@@ -1099,11 +1356,11 @@ function startAfterglow(index, now) {
 
 
 
-// 떨어지는 동안 계속 다시 그리기
-
 function startMotionLoop() {
 
-  if (motionFrame !== null) {
+  if (
+    motionFrame !== null
+  ) {
     return;
   }
 
@@ -1113,10 +1370,15 @@ function startMotionLoop() {
     const now =
       performance.now();
 
+
     let moving = false;
 
 
-    for (let i = 0; i < total; i++) {
+    for (
+      let i = 0;
+      i < total;
+      i++
+    ) {
 
       if (
         fallData[i] !== null &&
@@ -1130,20 +1392,37 @@ function startMotionLoop() {
       }
 
 
-      if (afterglows[i] !== null) {
+      if (
+        afterglows[i] !== null
+      ) {
 
         const passed =
           now -
           afterglows[i].startTime;
 
 
-        if (passed >= fadeTime) {
+        if (
+          passed >= fadeTime
+        ) {
 
           afterglows[i] = null;
           fallData[i] = null;
 
+
           discoveryElements[i]
-            .classList.remove("clicked");
+            .classList.remove(
+              "clicked"
+            );
+
+
+          if (
+            displayPoint === i
+          ) {
+
+            displayPoint = -1;
+            updateCounter();
+
+          }
 
         } else {
 
@@ -1159,7 +1438,9 @@ function startMotionLoop() {
     if (moving) {
 
       motionFrame =
-        requestAnimationFrame(animate);
+        requestAnimationFrame(
+          animate
+        );
 
     } else {
 
@@ -1171,16 +1452,21 @@ function startMotionLoop() {
 
 
   motionFrame =
-    requestAnimationFrame(animate);
+    requestAnimationFrame(
+      animate
+    );
 }
 
 
 
-// 떨어진 시간
+function physicsTime(
+  source,
+  now
+) {
 
-function physicsTime(source, now) {
-
-  if (fallData[source] === null) {
+  if (
+    fallData[source] === null
+  ) {
     return 0;
   }
 
@@ -1196,9 +1482,10 @@ function physicsTime(source, now) {
 
 
 
-// 가운데 도형
-
-function centerMotion(source, now) {
+function centerMotion(
+  source,
+  now
+) {
 
   const t =
     physicsTime(
@@ -1208,17 +1495,20 @@ function centerMotion(source, now) {
 
 
   return {
+
     x: 0,
 
     y:
       centerVelocity * t +
-      0.5 * gravity * t * t
+      0.5 *
+      gravity *
+      t *
+      t
+
   };
 }
 
 
-
-// 주변 도형은 각각 조금씩 다르게 떨어짐
 
 function particleMotion(
   target,
@@ -1234,6 +1524,7 @@ function particleMotion(
 
 
   if (t <= 0) {
+
     return {
       x: 0,
       y: 0
@@ -1294,13 +1585,15 @@ function particleMotion(
 
     y:
       velocityY * t +
-      0.5 * g * t * t
+      0.5 *
+      g *
+      t *
+      t
+
   };
 }
 
 
-
-// 색 계산
 
 function hexToRgb(hex) {
 
@@ -1327,8 +1620,10 @@ function hexToRgb(hex) {
         value.substring(4, 6),
         16
       )
+
   };
 }
+
 
 
 function paletteColor(
@@ -1339,7 +1634,10 @@ function paletteColor(
   strength =
     Math.max(
       0,
-      Math.min(1, strength)
+      Math.min(
+        1,
+        strength
+      )
     );
 
 
@@ -1368,6 +1666,7 @@ function paletteColor(
       palette[index]
     );
 
+
   const c2 =
     hexToRgb(
       palette[next]
@@ -1381,12 +1680,14 @@ function paletteColor(
       amount
     );
 
+
   const g =
     Math.round(
       c1.g +
       (c2.g - c1.g) *
       amount
     );
+
 
   const b =
     Math.round(
@@ -1401,16 +1702,24 @@ function paletteColor(
 
 
 
-// 클릭 단계가 커질수록 범위가 넓어짐
-
 function normalInfluence(
   source,
   target
 ) {
 
+  const step =
+    steps[source];
+
+
+  if (step < 0) {
+    return 0;
+  }
+
+
   const dx =
     positions[target].x -
     positions[source].x;
+
 
   const dy =
     positions[target].y -
@@ -1425,27 +1734,25 @@ function normalInfluence(
 
 
   const radius =
-    Math.pow(
-      clickCounts[source],
-      1.35
-    ) * 22;
+    getRadius(step);
 
 
-  const influence =
-    1 -
-    distance /
-    (radius + waveSoftness);
+  if (
+    distance > radius
+  ) {
+    return 0;
+  }
 
 
   return Math.max(
-    0,
-    Math.min(1, influence)
+    0.05,
+    1 -
+    distance /
+    (radius + 10)
   );
 }
 
 
-
-// 마지막 잔상 범위
 
 function afterglowInfluence(
   source,
@@ -1457,71 +1764,47 @@ function afterglowInfluence(
     afterglows[source];
 
 
-  if (glow === null) {
+  if (
+    glow === null
+  ) {
     return 0;
   }
 
 
   const passed =
-    now - glow.startTime;
+    now -
+    glow.startTime;
 
 
   let progress =
-    passed / fadeTime;
+    passed /
+    fadeTime;
 
 
   progress =
     Math.max(
       0,
-      Math.min(1, progress)
+      Math.min(
+        1,
+        progress
+      )
     );
 
 
-  const dx =
-    positions[target].x -
-    positions[source].x;
-
-  const dy =
-    positions[target].y -
-    positions[source].y;
-
-
-  const distance =
-    Math.sqrt(
-      dx * dx +
-      dy * dy
-    );
-
-
-  const radius =
-    Math.max(
-      10,
-      Math.pow(
-        glow.size,
-        1.35
-      ) * 22
-    );
-
-
-  const distanceRate =
-    distance / radius;
-
-
-  if (distanceRate > 1) {
+  if (
+    target !== source
+  ) {
     return 0;
   }
 
 
-  return Math.max(
-    0,
-    (1 - distanceRate) *
-    (1 - progress)
+  return (
+    1 -
+    progress
   );
 }
 
 
-
-// 선택한 도형이 여러 개면 섞어서 사용
 
 function actualShape(
   source,
@@ -1532,7 +1815,10 @@ function actualShape(
     pointShapes[source];
 
 
-  if (shapes.length === 1) {
+  if (
+    shapes.length === 1
+  ) {
+
     return shapes[0];
   }
 
@@ -1546,7 +1832,8 @@ function actualShape(
 
   const index =
     Math.floor(
-      r * shapes.length
+      r *
+      shapes.length
     );
 
 
@@ -1554,8 +1841,6 @@ function actualShape(
 }
 
 
-
-// SVG 도형
 
 function makeShape(
   type,
@@ -1570,7 +1855,9 @@ function makeShape(
   let shape;
 
 
-  if (type === "circle") {
+  if (
+    type === "circle"
+  ) {
 
     shape =
       document.createElementNS(
@@ -1578,11 +1865,26 @@ function makeShape(
         "circle"
       );
 
-    shape.setAttribute("cx", x);
-    shape.setAttribute("cy", y);
-    shape.setAttribute("r", radius);
 
-  } else if (type === "square") {
+    shape.setAttribute(
+      "cx",
+      x
+    );
+
+    shape.setAttribute(
+      "cy",
+      y
+    );
+
+    shape.setAttribute(
+      "r",
+      radius
+    );
+
+
+  } else if (
+    type === "square"
+  ) {
 
     const size =
       radius * 1.75;
@@ -1593,6 +1895,7 @@ function makeShape(
         "http://www.w3.org/2000/svg",
         "rect"
       );
+
 
     shape.setAttribute(
       "x",
@@ -1614,10 +1917,12 @@ function makeShape(
       size
     );
 
+
     shape.setAttribute(
       "transform",
       `rotate(${rotation} ${x} ${y})`
     );
+
 
   } else {
 
@@ -1639,6 +1944,7 @@ function makeShape(
       points
     );
 
+
     shape.setAttribute(
       "transform",
       `rotate(${rotation} ${x} ${y})`
@@ -1651,6 +1957,7 @@ function makeShape(
     color
   );
 
+
   shape.setAttribute(
     "fill-opacity",
     opacity
@@ -1662,16 +1969,12 @@ function makeShape(
 
 
 
-// 화면 그리기
-
 function draw() {
 
   shapeContent.innerHTML = "";
 
   const now =
     performance.now();
-
-  let visibleCount = 0;
 
 
   for (
@@ -1684,8 +1987,6 @@ function draw() {
     let sourceIndex = -1;
 
 
-    // 이 지점에 가장 강하게 닿는 폭죽 찾기
-
     for (
       let source = 0;
       source < total;
@@ -1695,7 +1996,9 @@ function draw() {
       let influence = 0;
 
 
-      if (clickCounts[source] > 0) {
+      if (
+        steps[source] >= 0
+      ) {
 
         influence =
           normalInfluence(
@@ -1716,15 +2019,23 @@ function draw() {
       }
 
 
-      if (influence > strongest) {
+      if (
+        influence >
+        strongest
+      ) {
 
-        strongest = influence;
-        sourceIndex = source;
+        strongest =
+          influence;
+
+        sourceIndex =
+          source;
       }
     }
 
 
-    if (strongest <= 0.005) {
+    if (
+      strongest <= 0.005
+    ) {
       continue;
     }
 
@@ -1745,7 +2056,9 @@ function draw() {
     let move;
 
 
-    if (target === sourceIndex) {
+    if (
+      target === sourceIndex
+    ) {
 
       move =
         centerMotion(
@@ -1767,11 +2080,15 @@ function draw() {
     const scale =
       0.15 +
       strongest *
-      (maxShapeScale - 0.15);
+      (
+        maxShapeScale -
+        0.15
+      );
 
 
     const radius =
-      shapeSize * scale;
+      shapeSize *
+      scale;
 
 
     let opacity =
@@ -1792,13 +2109,17 @@ function draw() {
 
 
       let fade =
-        passed / fadeTime;
+        passed /
+        fadeTime;
 
 
       fade =
         Math.max(
           0,
-          Math.min(1, fade)
+          Math.min(
+            1,
+            fade
+          )
         );
 
 
@@ -1810,19 +2131,10 @@ function draw() {
     }
 
 
-    /*
-    실제 화면에서 보이는 도형만 센다.
-    glow는 따로 세지 않는다.
-    */
-
-    if (opacity > 0.03) {
-      visibleCount++;
-    }
-
-
     const x =
       positions[target].x +
       move.x;
+
 
     const y =
       positions[target].y +
@@ -1853,7 +2165,9 @@ function draw() {
 
 
     const rotation =
-      direction * t * 20;
+      direction *
+      t *
+      20;
 
 
     const glow =
@@ -1868,7 +2182,9 @@ function draw() {
       );
 
 
-    shapeContent.appendChild(glow);
+    shapeContent.appendChild(
+      glow
+    );
 
 
     const shape =
@@ -1883,22 +2199,23 @@ function draw() {
       );
 
 
-    shapeContent.appendChild(shape);
+    shapeContent.appendChild(
+      shape
+    );
   }
-
-
-  // 반복문으로 센 실제 도형 수
-  updateCounter(visibleCount);
 }
 
 
 
-window.addEventListener("resize", function() {
-  setPositions();
-});
+window.addEventListener(
+  "resize",
+  function() {
+    setPositions();
+  }
+);
 
 
-updateCounter(0);
+updateCounter();
 updateDiscoveryShapes();
 setPositions();
 
