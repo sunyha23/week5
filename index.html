@@ -138,16 +138,15 @@ html, body {
   line-height: 0.82;
   letter-spacing: -0.075em;
   pointer-events: none;
-  opacity: 0.18;
   z-index: 20;
-}
-
-#counter.visible {
-  opacity: 0.92;
 }
 
 #counter.zero {
   opacity: 0.18;
+}
+
+#counter.visible {
+  opacity: 0.92;
 }
 </style>
 </head>
@@ -188,7 +187,6 @@ html, body {
 
 </div>
 
-
 <script>
 
 const stage = document.getElementById("stage");
@@ -206,88 +204,34 @@ const dragRadius = 18;
 
 const idleDelay = 180;
 const dragIdleDelay = 220;
-const rewindSpeed = 250;
-const fadeTime = 700;
+
+const minRewindTime = 700;
+const maxRewindTime = 1900;
+const fadeTime = 450;
 
 const shapeSize = 6.5;
 const maxShapeScale = 1.5;
 
 const gravity = 170;
 const centerVelocity = 3;
-
 const minVelocityY = -16;
 const maxVelocityY = 10;
 const horizontalVelocity = 10;
 const gravityVariation = 0.12;
 
 
-/*
-숫자는 배열에 계속 추가된다.
-
-1
-5
-13
-25
-41
-61
-85
-113
-...
-*/
+/* 숫자가 들어가는 배열 */
 
 const numberSteps = [1];
 
 
 const palettes = [
-
-  [
-    "#820050",
-    "#a9003e",
-    "#ff0090",
-    "#f58daf",
-    "#f39abb"
-  ],
-
-  [
-    "#17165e",
-    "#123fb5",
-    "#2b6fa5",
-    "#55a4d2",
-    "#84a4d2"
-  ],
-
-  [
-    "#ff4319",
-    "#ff7821",
-    "#ffa70a",
-    "#ffd047",
-    "#ffe600"
-  ],
-
-  [
-    "#1e0a45",
-    "#30266f",
-    "#781872",
-    "#a800f4",
-    "#f58daf"
-  ],
-
-  [
-    "#006f55",
-    "#27838a",
-    "#00d99c",
-    "#4dac50",
-    "#84eda1"
-  ],
-
-  [
-    "#820050",
-    "#a9003e",
-    "#e00029",
-    "#f20d0d",
-    "#ff4319"
-  ]
-
+  ["#820050", "#a9003e", "#ff0090", "#f58daf", "#f39abb"],
+  ["#17165e", "#123fb5", "#2b6fa5", "#55a4d2", "#84a4d2"],
+  ["#ff4319", "#ff7821", "#ffa70a", "#ffd047", "#ffe600"],
+  ["#1e0a45", "#30266f", "#781872", "#a800f4", "#f58daf"],
+  ["#006f55", "#27838a", "#00d99c", "#4dac50", "#84eda1"],
+  ["#820050", "#a9003e", "#e00029", "#f20d0d", "#ff4319"]
 ];
 
 
@@ -306,7 +250,6 @@ let rewinding = [];
 
 let fallData = [];
 let afterglows = [];
-
 let bigPoints = [];
 
 let motionFrame = null;
@@ -317,7 +260,6 @@ let draggedPoints = new Set();
 
 let downX = 0;
 let downY = 0;
-
 let pointerMoved = false;
 let startIndex = -1;
 
@@ -327,11 +269,7 @@ for (let i = 0; i < total; i++) {
 
   steps[i] = -1;
   pointShapes[i] = ["circle"];
-
-  pointPalette[i] =
-    Math.floor(
-      Math.random() * palettes.length
-    );
+  pointPalette[i] = Math.floor(Math.random() * palettes.length);
 
   idleTimers[i] = null;
   rewindFrames[i] = null;
@@ -340,12 +278,9 @@ for (let i = 0; i < total; i++) {
   fallData[i] = null;
   afterglows[i] = null;
 
-  bigPoints[i] =
-    Math.random() < 0.06;
+  bigPoints[i] = Math.random() < 0.06;
 
-  const point =
-    document.createElement("div");
-
+  const point = document.createElement("div");
   point.className = "discovery";
 
   if (bigPoints[i]) {
@@ -358,19 +293,16 @@ for (let i = 0; i < total; i++) {
 
 
 
-// 필요한 단계가 배열에 없으면 새 숫자를 계산해서 추가
+/* 배열에 다음 숫자 추가 */
 
 function makeNumberStep(step) {
 
   while (numberSteps.length <= step) {
 
     const n = numberSteps.length;
+    const last = numberSteps[numberSteps.length - 1];
 
-    const last =
-      numberSteps[numberSteps.length - 1];
-
-    const next =
-      last + 4 * n;
+    const next = last + 4 * n;
 
     numberSteps.push(next);
   }
@@ -380,8 +312,7 @@ function makeNumberStep(step) {
 
 
 
-// 단계가 올라갈수록 반경 증가
-// 반경은 화면 전체를 덮는 크기에서 멈춘다
+/* 폭죽 크기 */
 
 function getRadius(step) {
 
@@ -389,23 +320,13 @@ function getRadius(step) {
   const growRadius = 24;
 
   const wantedRadius =
-    startRadius +
-    step * growRadius;
+    startRadius + step * growRadius;
 
-
-  const w =
-    stage.clientWidth;
-
-  const h =
-    stage.clientHeight;
-
+  const w = stage.clientWidth;
+  const h = stage.clientHeight;
 
   const maxRadius =
-    Math.sqrt(
-      w * w +
-      h * h
-    );
-
+    Math.sqrt(w * w + h * h);
 
   return Math.min(
     wantedRadius,
@@ -436,13 +357,9 @@ function makeDiscoveryShape(type) {
       "svg"
     );
 
-  svg.setAttribute(
-    "viewBox",
-    "0 0 24 24"
-  );
+  svg.setAttribute("viewBox", "0 0 24 24");
 
   let shape;
-
 
   if (type === "circle") {
 
@@ -483,7 +400,6 @@ function makeDiscoveryShape(type) {
     shape.setAttribute("height", 10);
   }
 
-
   svg.appendChild(shape);
 
   return svg;
@@ -497,19 +413,12 @@ function discoveryShape(index) {
     return activeShapes[0];
   }
 
-
-  const r =
-    randomValue(
-      index,
-      777
-    );
-
+  const r = randomValue(index, 777);
 
   const n =
     Math.floor(
       r * activeShapes.length
     );
-
 
   return activeShapes[n];
 }
@@ -522,8 +431,7 @@ function updateDiscoveryShapes() {
 
     discoveryElements[i].innerHTML = "";
 
-    const type =
-      discoveryShape(i);
+    const type = discoveryShape(i);
 
     discoveryElements[i].appendChild(
       makeDiscoveryShape(type)
@@ -549,19 +457,14 @@ shapeButtons.forEach(function(button) {
 
       e.stopPropagation();
 
-      const shape =
-        button.dataset.shape;
-
-      const on =
-        activeShapes.includes(shape);
-
+      const shape = button.dataset.shape;
+      const on = activeShapes.includes(shape);
 
       if (on) {
 
         if (activeShapes.length === 1) {
           return;
         }
-
 
         activeShapes =
           activeShapes.filter(
@@ -570,20 +473,13 @@ shapeButtons.forEach(function(button) {
             }
           );
 
-
-        button.classList.remove(
-          "active"
-        );
+        button.classList.remove("active");
 
       } else {
 
         activeShapes.push(shape);
-
-        button.classList.add(
-          "active"
-        );
+        button.classList.add("active");
       }
-
 
       updateDiscoveryShapes();
     }
@@ -596,75 +492,40 @@ function setPositions() {
 
   positions = [];
 
-  const w =
-    stage.clientWidth;
+  const w = stage.clientWidth;
+  const h = stage.clientHeight;
 
-  const h =
-    stage.clientHeight;
-
-
-  const cellW =
-    w / columns;
-
-  const cellH =
-    h / rows;
-
+  const cellW = w / columns;
+  const cellH = h / rows;
 
   for (let i = 0; i < total; i++) {
 
-    const col =
-      i % columns;
-
-    const row =
-      Math.floor(
-        i / columns
-      );
-
+    const col = i % columns;
+    const row = Math.floor(i / columns);
 
     positions.push({
-
-      x:
-        col * cellW +
-        cellW / 2,
-
-      y:
-        row * cellH +
-        cellH / 2
-
+      x: col * cellW + cellW / 2,
+      y: row * cellH + cellH / 2
     });
   }
-
 
   draw();
 }
 
 
 
-function findPoint(
-  x,
-  y,
-  maxDistance
-) {
+function findPoint(x, y, maxDistance) {
 
   let found = -1;
   let closest = Infinity;
 
-
   for (let i = 0; i < total; i++) {
 
-    const dx =
-      positions[i].x - x;
-
-    const dy =
-      positions[i].y - y;
-
+    const dx = positions[i].x - x;
+    const dy = positions[i].y - y;
 
     const distance =
-      Math.sqrt(
-        dx * dx +
-        dy * dy
-      );
-
+      Math.sqrt(dx * dx + dy * dy);
 
     if (
       distance < closest &&
@@ -676,7 +537,6 @@ function findPoint(
     }
   }
 
-
   return found;
 }
 
@@ -687,54 +547,30 @@ function updateCounter() {
   if (displayPoint === -1) {
 
     counter.textContent = "0";
-
-    counter.classList.remove(
-      "visible"
-    );
-
-    counter.classList.add(
-      "zero"
-    );
+    counter.classList.remove("visible");
+    counter.classList.add("zero");
 
     return;
   }
 
-
-  const step =
-    steps[displayPoint];
-
+  const step = steps[displayPoint];
 
   if (step < 0) {
 
     counter.textContent = "0";
-
-    counter.classList.remove(
-      "visible"
-    );
-
-    counter.classList.add(
-      "zero"
-    );
+    counter.classList.remove("visible");
+    counter.classList.add("zero");
 
     return;
   }
 
-
   const number =
     makeNumberStep(step);
 
+  counter.textContent = number;
 
-  counter.textContent =
-    number;
-
-
-  counter.classList.remove(
-    "zero"
-  );
-
-  counter.classList.add(
-    "visible"
-  );
+  counter.classList.remove("zero");
+  counter.classList.add("visible");
 }
 
 
@@ -743,14 +579,9 @@ stage.addEventListener(
   "pointerdown",
   function(e) {
 
-    if (
-      e.target.closest(
-        "#shapeSelector"
-      )
-    ) {
+    if (e.target.closest("#shapeSelector")) {
       return;
     }
-
 
     isDragging = true;
     pointerMoved = false;
@@ -760,7 +591,6 @@ stage.addEventListener(
     downX = e.clientX;
     downY = e.clientY;
 
-
     startIndex =
       findPoint(
         e.clientX,
@@ -768,10 +598,7 @@ stage.addEventListener(
         discoverRadius
       );
 
-
-    stage.setPointerCapture(
-      e.pointerId
-    );
+    stage.setPointerCapture(e.pointerId);
   }
 );
 
@@ -791,36 +618,24 @@ stage.addEventListener(
       return;
     }
 
-
-    const dx =
-      e.clientX - downX;
-
-    const dy =
-      e.clientY - downY;
-
+    const dx = e.clientX - downX;
+    const dy = e.clientY - downY;
 
     const distance =
-      Math.sqrt(
-        dx * dx +
-        dy * dy
-      );
-
+      Math.sqrt(dx * dx + dy * dy);
 
     if (distance > 5) {
       pointerMoved = true;
     }
 
-
     if (!pointerMoved) {
       return;
     }
-
 
     dragPoint(
       e.clientX,
       e.clientY
     );
-
 
     showNearPoints(
       e.clientX,
@@ -838,7 +653,6 @@ stage.addEventListener(
     if (!isDragging) {
       return;
     }
-
 
     if (
       !pointerMoved &&
@@ -861,19 +675,12 @@ stage.addEventListener(
       );
     }
 
-
     isDragging = false;
     draggedPoints.clear();
-
     startIndex = -1;
 
-
     try {
-
-      stage.releasePointerCapture(
-        e.pointerId
-      );
-
+      stage.releasePointerCapture(e.pointerId);
     } catch (error) {}
   }
 );
@@ -896,7 +703,6 @@ stage.addEventListener(
     if (!isDragging) {
       hideNearPoints();
     }
-
   }
 );
 
@@ -906,14 +712,11 @@ function saveShape(index) {
 
   if (steps[index] < 0) {
 
-    pointShapes[index] =
-      [...activeShapes];
-
+    pointShapes[index] = [...activeShapes];
 
     pointPalette[index] =
       Math.floor(
-        Math.random() *
-        palettes.length
+        Math.random() * palettes.length
       );
   }
 }
@@ -929,50 +732,34 @@ function dragPoint(x, y) {
       dragRadius
     );
 
-
   if (index === -1) {
     return;
   }
 
-
-  if (
-    draggedPoints.has(index)
-  ) {
+  if (draggedPoints.has(index)) {
     return;
   }
-
 
   draggedPoints.add(index);
 
   saveShape(index);
   cancelAnimation(index);
 
-
   if (steps[index] < 0) {
-
     steps[index] = 0;
-
   } else {
-
     steps[index]++;
   }
 
+  makeNumberStep(steps[index]);
 
-  makeNumberStep(
-    steps[index]
-  );
-
-
-  displayPoint =
-    index;
-
+  displayPoint = index;
 
   discoveryElements[index]
     .classList.remove("near");
 
   discoveryElements[index]
     .classList.add("clicked");
-
 
   updateCounter();
   draw();
@@ -986,7 +773,6 @@ function finishDrag() {
     return;
   }
 
-
   draggedPoints.forEach(
     function(index) {
 
@@ -998,17 +784,13 @@ function finishDrag() {
     }
   );
 
-
   draggedPoints.clear();
   isDragging = false;
 }
 
 
 
-function showNearPoints(
-  mouseX,
-  mouseY
-) {
+function showNearPoints(mouseX, mouseY) {
 
   for (let i = 0; i < total; i++) {
 
@@ -1027,31 +809,19 @@ function showNearPoints(
       continue;
     }
 
-
     discoveryElements[i]
       .classList.remove("clicked");
 
-
     const dx =
-      positions[i].x -
-      mouseX;
+      positions[i].x - mouseX;
 
     const dy =
-      positions[i].y -
-      mouseY;
-
+      positions[i].y - mouseY;
 
     const distance =
-      Math.sqrt(
-        dx * dx +
-        dy * dy
-      );
+      Math.sqrt(dx * dx + dy * dy);
 
-
-    if (
-      distance <=
-      discoverRadius
-    ) {
+    if (distance <= discoverRadius) {
 
       discoveryElements[i]
         .classList.add("near");
@@ -1072,7 +842,6 @@ function hideNearPoints() {
 
     discoveryElements[i]
       .classList.remove("near");
-
   }
 }
 
@@ -1083,25 +852,15 @@ function grow(index) {
   saveShape(index);
   cancelAnimation(index);
 
-
   if (steps[index] < 0) {
-
     steps[index] = 0;
-
   } else {
-
     steps[index]++;
   }
 
+  makeNumberStep(steps[index]);
 
-  makeNumberStep(
-    steps[index]
-  );
-
-
-  displayPoint =
-    index;
-
+  displayPoint = index;
 
   discoveryElements[index]
     .classList.remove("near");
@@ -1109,10 +868,8 @@ function grow(index) {
   discoveryElements[index]
     .classList.add("clicked");
 
-
   updateCounter();
   draw();
-
 
   scheduleRewind(
     index,
@@ -1124,10 +881,7 @@ function grow(index) {
 
 function cancelAnimation(index) {
 
-  clearTimeout(
-    idleTimers[index]
-  );
-
+  clearTimeout(idleTimers[index]);
 
   idleTimers[index] = null;
 
@@ -1139,51 +893,17 @@ function cancelAnimation(index) {
 
 
 
-function resetPoint(index) {
-
-  cancelAnimation(index);
-
-  steps[index] = -1;
-
-
-  discoveryElements[index]
-    .classList.remove(
-      "clicked",
-      "near"
-    );
-
-
-  if (
-    displayPoint === index
-  ) {
-
-    displayPoint = -1;
-
-    updateCounter();
-  }
-
-
-  draw();
-}
-
-
-
 function scheduleRewind(
   index,
   delay = idleDelay
 ) {
 
-  clearTimeout(
-    idleTimers[index]
-  );
-
+  clearTimeout(idleTimers[index]);
 
   idleTimers[index] =
     setTimeout(
       function() {
-
         startRewind(index);
-
       },
       delay
     );
@@ -1191,41 +911,38 @@ function scheduleRewind(
 
 
 
+/*
+숫자가 아무리 커져도
+되감기는 최대 maxRewindTime 안에 끝난다.
+*/
+
 function startRewind(index) {
 
   if (steps[index] < 0) {
     return;
   }
 
-
   stopRewind(index);
 
   rewinding[index] = true;
 
-
-  const startStep =
-    steps[index];
-
-  const startTime =
-    performance.now();
-
+  const startStep = steps[index];
+  const startTime = performance.now();
 
   const duration =
-    Math.max(
-      480,
-      (startStep + 1) *
-      rewindSpeed
+    Math.min(
+      maxRewindTime,
+      Math.max(
+        minRewindTime,
+        (startStep + 1) * 100
+      )
     );
 
-
   fallData[index] = {
-
     startTime: startTime,
     startStep: startStep,
     duration: duration
-
   };
-
 
   startMotionLoop();
 
@@ -1236,10 +953,8 @@ function startRewind(index) {
       return;
     }
 
-
     const passed =
       now - startTime;
-
 
     const progress =
       Math.min(
@@ -1248,34 +963,28 @@ function startRewind(index) {
       );
 
 
+    /*
+    시작 단계에서 0까지
+    시간 비율에 따라 빠르게 이동
+    */
+
     let newStep =
-      startStep -
       Math.floor(
-        progress *
-        (startStep + 1)
+        startStep *
+        (1 - progress)
       );
 
 
-    newStep =
-      Math.max(
-        -1,
-        newStep
-      );
+    if (progress >= 0.97) {
+      newStep = -1;
+    }
 
 
-    if (
-      newStep !==
-      steps[index]
-    ) {
+    if (newStep !== steps[index]) {
 
-      steps[index] =
-        newStep;
+      steps[index] = newStep;
 
-
-      if (
-        displayPoint === index
-      ) {
-
+      if (displayPoint === index) {
         updateCounter();
       }
     }
@@ -1290,46 +999,41 @@ function startRewind(index) {
 
     } else {
 
-      steps[index] = -1;
-
-
-      if (
-        displayPoint === index
-      ) {
-
-        updateCounter();
-      }
-
-
-      stopRewind(index);
-
-      startAfterglow(
-        index,
-        now
-      );
+      finishRewind(index, now);
     }
   }
 
 
   rewindFrames[index] =
-    requestAnimationFrame(
-      rewind
-    );
+    requestAnimationFrame(rewind);
+}
+
+
+
+function finishRewind(index, now) {
+
+  stopRewind(index);
+
+  steps[index] = -1;
+
+  if (displayPoint === index) {
+    displayPoint = -1;
+    updateCounter();
+  }
+
+  startAfterglow(index, now);
 }
 
 
 
 function stopRewind(index) {
 
-  if (
-    rewindFrames[index] !== null
-  ) {
+  if (rewindFrames[index] !== null) {
 
     cancelAnimationFrame(
       rewindFrames[index]
     );
   }
-
 
   rewindFrames[index] = null;
   rewinding[index] = false;
@@ -1337,17 +1041,11 @@ function stopRewind(index) {
 
 
 
-function startAfterglow(
-  index,
-  now
-) {
+function startAfterglow(index, now) {
 
   afterglows[index] = {
-
     startTime: now
-
   };
-
 
   idleTimers[index] = null;
 
@@ -1358,9 +1056,7 @@ function startAfterglow(
 
 function startMotionLoop() {
 
-  if (
-    motionFrame !== null
-  ) {
+  if (motionFrame !== null) {
     return;
   }
 
@@ -1370,59 +1066,29 @@ function startMotionLoop() {
     const now =
       performance.now();
 
-
     let moving = false;
 
 
-    for (
-      let i = 0;
-      i < total;
-      i++
-    ) {
+    for (let i = 0; i < total; i++) {
 
-      if (
-        fallData[i] !== null &&
-        (
-          rewinding[i] ||
-          afterglows[i] !== null
-        )
-      ) {
-
+      if (rewinding[i]) {
         moving = true;
       }
 
 
-      if (
-        afterglows[i] !== null
-      ) {
+      if (afterglows[i] !== null) {
 
         const passed =
           now -
           afterglows[i].startTime;
 
-
-        if (
-          passed >= fadeTime
-        ) {
+        if (passed >= fadeTime) {
 
           afterglows[i] = null;
           fallData[i] = null;
 
-
           discoveryElements[i]
-            .classList.remove(
-              "clicked"
-            );
-
-
-          if (
-            displayPoint === i
-          ) {
-
-            displayPoint = -1;
-            updateCounter();
-
-          }
+            .classList.remove("clicked");
 
         } else {
 
@@ -1445,7 +1111,6 @@ function startMotionLoop() {
     } else {
 
       motionFrame = null;
-
       draw();
     }
   }
@@ -1459,17 +1124,11 @@ function startMotionLoop() {
 
 
 
-function physicsTime(
-  source,
-  now
-) {
+function physicsTime(source, now) {
 
-  if (
-    fallData[source] === null
-  ) {
+  if (fallData[source] === null) {
     return 0;
   }
-
 
   return Math.max(
     0,
@@ -1482,10 +1141,7 @@ function physicsTime(
 
 
 
-function centerMotion(
-  source,
-  now
-) {
+function centerMotion(source, now) {
 
   const t =
     physicsTime(
@@ -1493,9 +1149,7 @@ function centerMotion(
       now
     );
 
-
   return {
-
     x: 0,
 
     y:
@@ -1504,7 +1158,6 @@ function centerMotion(
       gravity *
       t *
       t
-
   };
 }
 
@@ -1522,7 +1175,6 @@ function particleMotion(
       now
     );
 
-
   if (t <= 0) {
 
     return {
@@ -1537,7 +1189,6 @@ function particleMotion(
       target,
       source + 17
     );
-
 
   const velocityY =
     minVelocityY +
@@ -1554,7 +1205,6 @@ function particleMotion(
       source + 53
     );
 
-
   const velocityX =
     (r2 - 0.5) *
     2 *
@@ -1567,7 +1217,6 @@ function particleMotion(
       source + 91
     );
 
-
   const g =
     gravity *
     (
@@ -1579,9 +1228,7 @@ function particleMotion(
 
 
   return {
-
-    x:
-      velocityX * t,
+    x: velocityX * t,
 
     y:
       velocityY * t +
@@ -1589,7 +1236,6 @@ function particleMotion(
       g *
       t *
       t
-
   };
 }
 
@@ -1600,9 +1246,7 @@ function hexToRgb(hex) {
   const value =
     hex.replace("#", "");
 
-
   return {
-
     r:
       parseInt(
         value.substring(0, 2),
@@ -1620,7 +1264,6 @@ function hexToRgb(hex) {
         value.substring(4, 6),
         16
       )
-
   };
 }
 
@@ -1634,21 +1277,15 @@ function paletteColor(
   strength =
     Math.max(
       0,
-      Math.min(
-        1,
-        strength
-      )
+      Math.min(1, strength)
     );
-
 
   const position =
     (1 - strength) *
     (palette.length - 1);
 
-
   const index =
     Math.floor(position);
-
 
   const next =
     Math.min(
@@ -1656,22 +1293,18 @@ function paletteColor(
       index + 1
     );
 
-
   const amount =
     position - index;
-
 
   const c1 =
     hexToRgb(
       palette[index]
     );
 
-
   const c2 =
     hexToRgb(
       palette[next]
     );
-
 
   const r =
     Math.round(
@@ -1680,7 +1313,6 @@ function paletteColor(
       amount
     );
 
-
   const g =
     Math.round(
       c1.g +
@@ -1688,14 +1320,12 @@ function paletteColor(
       amount
     );
 
-
   const b =
     Math.round(
       c1.b +
       (c2.b - c1.b) *
       amount
     );
-
 
   return `rgb(${r}, ${g}, ${b})`;
 }
@@ -1710,21 +1340,17 @@ function normalInfluence(
   const step =
     steps[source];
 
-
   if (step < 0) {
     return 0;
   }
-
 
   const dx =
     positions[target].x -
     positions[source].x;
 
-
   const dy =
     positions[target].y -
     positions[source].y;
-
 
   const distance =
     Math.sqrt(
@@ -1732,17 +1358,12 @@ function normalInfluence(
       dy * dy
     );
 
-
   const radius =
     getRadius(step);
 
-
-  if (
-    distance > radius
-  ) {
+  if (distance > radius) {
     return 0;
   }
-
 
   return Math.max(
     0.05,
@@ -1763,45 +1384,28 @@ function afterglowInfluence(
   const glow =
     afterglows[source];
 
-
-  if (
-    glow === null
-  ) {
+  if (glow === null) {
     return 0;
   }
 
+  if (target !== source) {
+    return 0;
+  }
 
   const passed =
     now -
     glow.startTime;
 
-
   let progress =
-    passed /
-    fadeTime;
-
+    passed / fadeTime;
 
   progress =
     Math.max(
       0,
-      Math.min(
-        1,
-        progress
-      )
+      Math.min(1, progress)
     );
 
-
-  if (
-    target !== source
-  ) {
-    return 0;
-  }
-
-
-  return (
-    1 -
-    progress
-  );
+  return 1 - progress;
 }
 
 
@@ -1814,14 +1418,9 @@ function actualShape(
   const shapes =
     pointShapes[source];
 
-
-  if (
-    shapes.length === 1
-  ) {
-
+  if (shapes.length === 1) {
     return shapes[0];
   }
-
 
   const r =
     randomValue(
@@ -1829,13 +1428,10 @@ function actualShape(
       source + 300
     );
 
-
   const index =
     Math.floor(
-      r *
-      shapes.length
+      r * shapes.length
     );
-
 
   return shapes[index];
 }
@@ -1855,9 +1451,7 @@ function makeShape(
   let shape;
 
 
-  if (
-    type === "circle"
-  ) {
+  if (type === "circle") {
 
     shape =
       document.createElementNS(
@@ -1865,37 +1459,21 @@ function makeShape(
         "circle"
       );
 
-
-    shape.setAttribute(
-      "cx",
-      x
-    );
-
-    shape.setAttribute(
-      "cy",
-      y
-    );
-
-    shape.setAttribute(
-      "r",
-      radius
-    );
+    shape.setAttribute("cx", x);
+    shape.setAttribute("cy", y);
+    shape.setAttribute("r", radius);
 
 
-  } else if (
-    type === "square"
-  ) {
+  } else if (type === "square") {
 
     const size =
       radius * 1.75;
-
 
     shape =
       document.createElementNS(
         "http://www.w3.org/2000/svg",
         "rect"
       );
-
 
     shape.setAttribute(
       "x",
@@ -1917,7 +1495,6 @@ function makeShape(
       size
     );
 
-
     shape.setAttribute(
       "transform",
       `rotate(${rotation} ${x} ${y})`
@@ -1932,18 +1509,15 @@ function makeShape(
         "polygon"
       );
 
-
     const points =
       `${x},${y - radius} ` +
       `${x - radius * 0.9},${y + radius * 0.7} ` +
       `${x + radius * 0.9},${y + radius * 0.7}`;
 
-
     shape.setAttribute(
       "points",
       points
     );
-
 
     shape.setAttribute(
       "transform",
@@ -1957,12 +1531,10 @@ function makeShape(
     color
   );
 
-
   shape.setAttribute(
     "fill-opacity",
     opacity
   );
-
 
   return shape;
 }
@@ -1996,9 +1568,7 @@ function draw() {
       let influence = 0;
 
 
-      if (
-        steps[source] >= 0
-      ) {
+      if (steps[source] >= 0) {
 
         influence =
           normalInfluence(
@@ -2019,22 +1589,17 @@ function draw() {
       }
 
 
-      if (
-        influence >
-        strongest
-      ) {
+      if (influence > strongest) {
 
-        strongest =
-          influence;
-
-        sourceIndex =
-          source;
+        strongest = influence;
+        sourceIndex = source;
       }
     }
 
 
     if (
-      strongest <= 0.005
+      strongest <= 0.005 ||
+      sourceIndex === -1
     ) {
       continue;
     }
@@ -2056,9 +1621,7 @@ function draw() {
     let move;
 
 
-    if (
-      target === sourceIndex
-    ) {
+    if (target === sourceIndex) {
 
       move =
         centerMotion(
@@ -2087,8 +1650,7 @@ function draw() {
 
 
     const radius =
-      shapeSize *
-      scale;
+      shapeSize * scale;
 
 
     let opacity =
@@ -2107,21 +1669,14 @@ function draw() {
         afterglows[sourceIndex]
           .startTime;
 
-
       let fade =
-        passed /
-        fadeTime;
-
+        passed / fadeTime;
 
       fade =
         Math.max(
           0,
-          Math.min(
-            1,
-            fade
-          )
+          Math.min(1, fade)
         );
-
 
       opacity *=
         Math.pow(
@@ -2135,10 +1690,24 @@ function draw() {
       positions[target].x +
       move.x;
 
-
     const y =
       positions[target].y +
       move.y;
+
+
+    /*
+    화면 밖으로 떨어진 도형은
+    더 이상 그리지 않는다.
+    */
+
+    if (
+      x < -30 ||
+      x > stage.clientWidth + 30 ||
+      y < -30 ||
+      y > stage.clientHeight + 30
+    ) {
+      continue;
+    }
 
 
     const type =
@@ -2181,10 +1750,7 @@ function draw() {
         rotation
       );
 
-
-    shapeContent.appendChild(
-      glow
-    );
+    shapeContent.appendChild(glow);
 
 
     const shape =
@@ -2198,10 +1764,7 @@ function draw() {
         rotation
       );
 
-
-    shapeContent.appendChild(
-      shape
-    );
+    shapeContent.appendChild(shape);
   }
 }
 
